@@ -90,10 +90,12 @@
           {{ selectedCurrency.name }} - USD
         </h3>
         <div class="flex items-end border-gray-600 border-b border-l h-64">
-          <div class="bg-purple-800 border w-10 h-24"></div>
-          <div class="bg-purple-800 border w-10 h-32"></div>
-          <div class="bg-purple-800 border w-10 h-48"></div>
-          <div class="bg-purple-800 border w-10 h-16"></div>
+          <div
+            v-for="(bar, idx) in priceGraph()"
+            :key="idx"
+            :style="{ height: `${bar}%` }"
+            class="bg-purple-800 border w-10"
+          ></div>
         </div>
         <button type="button" class="absolute top-0 right-0">
           <svg
@@ -138,7 +140,8 @@ export default {
     startTrackCurrency() {
       const trackedCurrency = {
         name: this.currency,
-        price: "-"
+        price: "-",
+        priceHistory: []
       };
       this.trackedCurrencies.push(trackedCurrency);
       this.currency = null;
@@ -147,7 +150,35 @@ export default {
       this.trackedCurrencies = this.trackedCurrencies.filter(
         trackedCurrency => trackedCurrency != currency
       );
+    },
+    getCurrencyPrice(currency) {
+      let url = `https://min-api.cryptocompare.com/data/price?fsym=${currency}&tsyms=USD`;
+      return fetch(url).then(response => response.json());
+    },
+    priceGraph() {
+      let min = Math.min(...this.selectedCurrency.priceHistory);
+      let max = Math.max(...this.selectedCurrency.priceHistory);
+      let delta = max - min;
+      min -= delta * 0.1;
+      max += delta * 0.1;
+      return this.selectedCurrency.priceHistory.map(
+        price => ((price - min) * 100) / (max - min)
+      );
     }
+  },
+  created() {
+    setInterval(() => {
+      if (this.trackedCurrencies.length > 0) {
+        this.trackedCurrencies.forEach(currency => {
+          this.getCurrencyPrice(currency.name).then(price => {
+            let formattedPrice =
+              price.USD > 1 ? price.USD.toFixed(2) : price.USD.toPrecision(2);
+            currency.price = formattedPrice;
+            currency.priceHistory.push(price.USD);
+          });
+        });
+      }
+    }, 5000);
   }
 };
 </script>
